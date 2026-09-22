@@ -406,13 +406,14 @@ void main() {
   });
 
   test('直连 LLM：未登录无 token 也走适配器成功，不弹 401', () async {
-    Stream<String> okChunks() async* {
+    // 适配器逐帧 yield 增量 delta，controller 负责累加成全文。
+    Stream<String> okDeltas() async* {
       yield '它';
-      yield '它表示';
-      yield '它表示……';
+      yield '表示';
+      yield '……';
     }
 
-    final adapter = _ScriptOpenAiAdapter((_) => okChunks());
+    final adapter = _ScriptOpenAiAdapter((_) => okDeltas());
     final api = _ScriptApi((_) => okStream()); // 不应被调用
     final c = await make(api, hasSession: false, directLlmAdapter: adapter);
     await ctrl(c).send('这句话什么意思？');
