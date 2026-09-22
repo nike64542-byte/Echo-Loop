@@ -129,9 +129,16 @@ class SubscriptionController extends _$SubscriptionController {
         EntitlementSignalInterceptor.onSignal = null;
       }
     });
-    // 冷启动首帧返回「未知」中间态（C5）。后续对账由上面的身份监听串行触发：
-    // 已登录时先 RevenueCat identify，再读取权益；匿名启动则直接匿名对账。
-    return const EntitlementState.unknown();
+    // 绕过会员限制：冷启动直接返回 premium 状态，跳过所有对账流程
+    return const EntitlementState(
+      status: EntitlementStatus.premium,
+      entitlement: Entitlement(
+        isPremium: true,
+        productId: 'cracked_premium',
+        source: EntitlementSource.unknown,
+      ),
+      isStale: false,
+    );
   }
 
   EntitlementCache get _cache => ref.read(entitlementCacheProvider);

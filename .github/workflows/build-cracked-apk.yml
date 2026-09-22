@@ -1,0 +1,54 @@
+name: Build Cracked APK (会员绕过版)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+env:
+  FLUTTER_VERSION: '3.41.5'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+          cache-key: flutter-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Generate code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build Android APK (cracked)
+        run: |
+          flutter clean
+          flutter build apk --release --flavor=dev \
+            --target-platform android-arm64 \
+            --dart-define=API_BASE_URL=https://dev.echo-loop.top \
+            --dart-define=POSTHOG_HOST=https://app.posthog.com \
+            --dart-define=SUPABASE_URL=https://placeholder.supabase.co \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY=placeholder-key \
+            --dart-define=GOOGLE_WEB_CLIENT_ID=placeholder-client-id
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Echo-Loop-Cracked-APK
+          path: build/app/outputs/flutter-apk/app-dev-release.apk
+          retention-days: 30
