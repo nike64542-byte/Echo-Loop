@@ -17,6 +17,7 @@ import '../analytics/geo_interceptor.dart';
 import '../config/api_config.dart';
 import '../features/auth/providers/auth_providers.dart';
 import '../providers/package_info_provider.dart';
+import '../providers/runtime_api_config_provider.dart';
 import 'ai_http_client_adapter.dart';
 import 'app_logger.dart';
 import 'backend_dio.dart';
@@ -664,8 +665,9 @@ class SentenceAiApiClient {
 /// AI API 客户端单例 Provider
 @Riverpod(keepAlive: true)
 SentenceAiApiClient sentenceAiApiClient(Ref ref) {
+  final baseUrl = ref.watch(runtimeApiBaseUrlProvider);
   final client = SentenceAiApiClient(
-    baseUrl: apiBaseUrl,
+    baseUrl: baseUrl,
     appVersion: readAppVersion(ref),
     tokenCoordinator: ref.read(supabaseTokenCoordinatorProvider),
   );

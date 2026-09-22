@@ -13,6 +13,7 @@ import '../features/auth/providers/auth_providers.dart';
 import '../config/api_config.dart';
 import '../models/word_timestamp.dart';
 import '../providers/package_info_provider.dart';
+import '../providers/runtime_api_config_provider.dart';
 import 'api_log_interceptor.dart';
 import 'backend_dio.dart';
 import 'supabase_token_coordinator.dart';
@@ -297,8 +298,9 @@ class TranscriptionApiClient {
 /// 转录 API 客户端单例 Provider
 @Riverpod(keepAlive: true)
 TranscriptionApiClient transcriptionApiClient(Ref ref) {
+  final baseUrl = ref.watch(runtimeApiBaseUrlProvider);
   final client = TranscriptionApiClient(
-    baseUrl: apiBaseUrl,
+    baseUrl: baseUrl,
     appVersion: readAppVersion(ref),
     tokenCoordinator: ref.read(supabaseTokenCoordinatorProvider),
   );

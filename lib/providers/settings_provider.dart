@@ -17,6 +17,8 @@ const _skipSilenceEnabledKey = 'skip_silence_enabled';
 const _silenceThresholdSecondsKey = 'silence_threshold_seconds';
 const _aiTranscriptionAutoMergeEnabledKey =
     'ai_transcription_auto_merge_enabled';
+const _customApiBaseUrlKey = 'custom_api_base_url';
+const _customApiKeyKey = 'custom_api_key';
 
 /// 静音阈值合法范围（秒）
 const silenceThresholdMinSeconds = 1;
@@ -132,6 +134,12 @@ class AppSettingsState {
   /// 原生未合并分句（句子更短）。作为转录弹窗开关的默认值，记住用户上次选择。
   final bool aiTranscriptionAutoMergeEnabled;
 
+  /// 自定义大模型 API 地址（为空时使用编译期默认值）。
+  final String customApiBaseUrl;
+
+  /// 自定义大模型 API Key（为空时使用默认鉴权）。
+  final String customApiKey;
+
   const AppSettingsState({
     this.themeMode = ThemeMode.system,
     this.locale,
@@ -143,6 +151,8 @@ class AppSettingsState {
     this.skipSilenceEnabled = true,
     this.silenceThresholdSeconds = silenceThresholdDefaultSeconds,
     this.aiTranscriptionAutoMergeEnabled = true,
+    this.customApiBaseUrl = '',
+    this.customApiKey = '',
   });
 
   AppSettingsState copyWith({
@@ -158,6 +168,8 @@ class AppSettingsState {
     bool? skipSilenceEnabled,
     int? silenceThresholdSeconds,
     bool? aiTranscriptionAutoMergeEnabled,
+    String? customApiBaseUrl,
+    String? customApiKey,
   }) {
     return AppSettingsState(
       themeMode: themeMode ?? this.themeMode,
@@ -176,6 +188,8 @@ class AppSettingsState {
       aiTranscriptionAutoMergeEnabled:
           aiTranscriptionAutoMergeEnabled ??
           this.aiTranscriptionAutoMergeEnabled,
+      customApiBaseUrl: customApiBaseUrl ?? this.customApiBaseUrl,
+      customApiKey: customApiKey ?? this.customApiKey,
     );
   }
 }
@@ -266,6 +280,8 @@ class AppSettings extends _$AppSettings {
         );
     final aiTranscriptionAutoMergeEnabled =
         prefs.getBool(_aiTranscriptionAutoMergeEnabledKey) ?? true;
+    final customApiBaseUrl = prefs.getString(_customApiBaseUrlKey) ?? '';
+    final customApiKey = prefs.getString(_customApiKeyKey) ?? '';
 
     state = state.copyWith(
       themeMode: themeMode,
@@ -278,6 +294,8 @@ class AppSettings extends _$AppSettings {
       skipSilenceEnabled: skipSilenceEnabled,
       silenceThresholdSeconds: silenceThresholdSeconds,
       aiTranscriptionAutoMergeEnabled: aiTranscriptionAutoMergeEnabled,
+      customApiBaseUrl: customApiBaseUrl,
+      customApiKey: customApiKey,
     );
   }
 
@@ -431,5 +449,21 @@ class AppSettings extends _$AppSettings {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_aiTranscriptionAutoMergeEnabledKey, enabled);
+  }
+
+  /// 设置自定义大模型 API 地址。
+  Future<void> setCustomApiBaseUrl(String url) async {
+    state = state.copyWith(customApiBaseUrl: url);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_customApiBaseUrlKey, url);
+  }
+
+  /// 设置自定义大模型 API Key。
+  Future<void> setCustomApiKey(String key) async {
+    state = state.copyWith(customApiKey: key);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_customApiKeyKey, key);
   }
 }

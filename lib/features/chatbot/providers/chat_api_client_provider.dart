@@ -4,7 +4,7 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart' show Ref;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../config/api_config.dart';
+import '../../../providers/runtime_api_config_provider.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../../providers/package_info_provider.dart';
 import '../chatbot_flags.dart';
@@ -19,8 +19,9 @@ part 'chat_api_client_provider.g.dart';
 @Riverpod(keepAlive: true)
 ChatApi chatApiClient(Ref ref) {
   if (kChatbotUseFakeApi) return const FakeChatApiClient();
+  final baseUrl = ref.watch(runtimeApiBaseUrlProvider);
   final client = ChatApiClient(
-    baseUrl: apiBaseUrl,
+    baseUrl: baseUrl,
     appVersion: readAppVersion(ref),
     tokenCoordinator: ref.read(supabaseTokenCoordinatorProvider),
   );

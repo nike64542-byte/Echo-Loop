@@ -113,6 +113,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
           const SizedBox(height: AppSpacing.m),
+          _buildApiSettingsSection(context, ref, l10n, settings, settingsController),
+          const SizedBox(height: AppSpacing.m),
           _buildStudySection(context, ref, l10n),
           const SizedBox(height: AppSpacing.m),
           _buildAboutSection(context, ref, l10n),
@@ -274,6 +276,133 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         Card(child: Column(children: _intersperseDividers(children))),
       ],
     );
+  }
+
+  /// 构建「大模型 API」分组：自定义 API 地址和 Key 配置。
+  Widget _buildApiSettingsSection(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+    AppSettingsState settings,
+    AppSettings settingsController,
+  ) {
+    final customUrl = settings.customApiBaseUrl;
+    final customKey = settings.customApiKey;
+
+    return _buildSection(
+      context,
+      title: '大模型 API',
+      children: [
+        ListTile(
+          leading: _settingsMaterialIcon(Icons.link),
+          title: const Text('API 地址'),
+          subtitle: Text(
+            customUrl.isEmpty ? '使用默认地址' : customUrl,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => _showCustomApiUrlDialog(
+            context,
+            ref,
+            settingsController,
+            customUrl,
+          ),
+        ),
+        ListTile(
+          leading: _settingsMaterialIcon(Icons.key),
+          title: const Text('API Key'),
+          subtitle: Text(
+            customKey.isEmpty ? '未设置' : '已设置 (${customKey.length} 字符)',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => _showCustomApiKeyDialog(
+            context,
+            ref,
+            settingsController,
+            customKey,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 弹出自定义 API 地址编辑对话框。
+  Future<void> _showCustomApiUrlDialog(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settingsController,
+    String currentValue,
+  ) async {
+    final controller = TextEditingController(text: currentValue);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('设置 API 地址'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'https://your-api.com',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.url,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      await settingsController.setCustomApiBaseUrl(result);
+    }
+  }
+
+  /// 弹出自定义 API Key 编辑对话框。
+  Future<void> _showCustomApiKeyDialog(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settingsController,
+    String currentValue,
+  ) async {
+    final controller = TextEditingController(text: currentValue);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('设置 API Key'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'sk-...',
+            border: OutlineInputBorder(),
+          ),
+          obscureText: true,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      await settingsController.setCustomApiKey(result);
+    }
   }
 
   /// 构建「学习」分组：提醒、学习、语音识别、语音合成、播放、词典等入口合并到同一张卡片中。
