@@ -174,7 +174,7 @@ class OpenAiAdapter {
     _ChatCompletionRequest request, {
     CancelToken? cancelToken,
   }) async* {
-    AppLogger.log('OpenAI-Adapter', '请求: model=${request.modelId}');
+    AppLogger.log('OpenAI-Adapter', '请求: model=${request.model}');
 
     try {
       final response = await _dio.post<ResponseBody>(
