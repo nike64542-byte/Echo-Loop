@@ -387,26 +387,39 @@ void main() {
       expect(notifier.getCachedTranslation(text)?.translation, '你好世界');
     });
 
-    test('L2 未命中且无 accessToken 时抛出登录需求，不调用 API', () async {
+    test('L2 未命中且无 accessToken 时仍继续调用 API（绕过登录）', () async {
       when(
         () => mockDao.getByHash(any(), l2TranslationType),
       ).thenAnswer((_) async => null);
-
-      await expectLater(
-        notifier.getTranslationStream(text, targetLanguage: lang).toList(),
-        throwsA(isA<AiFeatureAuthRequiredException>()),
-      );
-
-      verifyNever(
+      when(
         () => mockApi.translateStream(
-          any(),
+          text,
           previousText: any(named: 'previousText'),
           nextText: any(named: 'nextText'),
-          targetLanguage: any(named: 'targetLanguage'),
+          targetLanguage: lang,
           accessToken: any(named: 'accessToken'),
           cancelToken: any(named: 'cancelToken'),
         ),
-      );
+      ).thenAnswer((_) => _finalTranslation('你好世界'));
+      when(
+        () => mockDao.upsert(any(), l2TranslationType, any()),
+      ).thenAnswer((_) async {});
+
+      final frames = await notifier
+          .getTranslationStream(text, targetLanguage: lang)
+          .toList();
+
+      expect(frames, isNotEmpty);
+      verify(
+        () => mockApi.translateStream(
+          text,
+          previousText: any(named: 'previousText'),
+          nextText: any(named: 'nextText'),
+          targetLanguage: lang,
+          accessToken: any(named: 'accessToken'),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).called(1);
     });
 
     test('中途取消（未收 final）不写缓存', () async {
@@ -613,24 +626,35 @@ void main() {
       verifyNever(() => mockDao.upsert(any(), l2AnalysisType, any()));
     });
 
-    test('L2 未命中且无 accessToken 时抛出登录需求，不调用 API', () async {
+    test('L2 未命中且无 accessToken 时仍继续调用 API（绕过登录）', () async {
       when(
         () => mockDao.getByHash(any(), l2AnalysisType),
       ).thenAnswer((_) async => null);
-
-      await expectLater(
-        notifier.getAnalysisStream(text, targetLanguage: lang).toList(),
-        throwsA(isA<AiFeatureAuthRequiredException>()),
-      );
-
-      verifyNever(
+      when(
         () => mockApi.analyzeStream(
-          any(),
-          targetLanguage: any(named: 'targetLanguage'),
+          text,
+          targetLanguage: lang,
           accessToken: any(named: 'accessToken'),
           cancelToken: any(named: 'cancelToken'),
         ),
-      );
+      ).thenAnswer((_) => _finalFrame(_analysisSample));
+      when(
+        () => mockDao.upsert(any(), l2AnalysisType, any()),
+      ).thenAnswer((_) async {});
+
+      final frames = await notifier
+          .getAnalysisStream(text, targetLanguage: lang)
+          .toList();
+
+      expect(frames, isNotEmpty);
+      verify(
+        () => mockApi.analyzeStream(
+          text,
+          targetLanguage: lang,
+          accessToken: any(named: 'accessToken'),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).called(1);
     });
 
     test('中途取消（未收 final）不写缓存', () async {
@@ -867,23 +891,38 @@ void main() {
       ).thenAnswer((_) => f());
     }
 
-    test('L2 未命中且无 accessToken 时抛出登录需求，不调用 API', () async {
+    test('L2 未命中且无 accessToken 时仍继续调用 API（绕过登录）', () async {
       when(
         () => mockDao.getByHash(hash, 'sense_groups'),
       ).thenAnswer((_) async => null);
-
-      await expectLater(
-        notifier.getSenseGroupsStream(text).toList(),
-        throwsA(isA<AiFeatureAuthRequiredException>()),
-      );
-
-      verifyNever(
+      when(
         () => mockApi.senseGroupsStream(
-          any(),
+          text,
           accessToken: any(named: 'accessToken'),
           cancelToken: any(named: 'cancelToken'),
         ),
+      ).thenAnswer(
+        (_) => _finalSenseGroups(
+          const SenseGroupResult(
+            medium: ['Hello world'],
+            fine: ['Hello', 'world'],
+          ),
+        ),
       );
+      when(
+        () => mockDao.upsert(hash, 'sense_groups', any()),
+      ).thenAnswer((_) async {});
+
+      final frames = await notifier.getSenseGroupsStream(text).toList();
+
+      expect(frames, isNotEmpty);
+      verify(
+        () => mockApi.senseGroupsStream(
+          text,
+          accessToken: any(named: 'accessToken'),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).called(1);
     });
 
     test('L2 SQLite 缓存命中，一次性 yield，不调 API', () async {

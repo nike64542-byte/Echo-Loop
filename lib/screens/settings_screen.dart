@@ -32,8 +32,6 @@ import '../providers/tag_provider.dart';
 import '../analytics/analytics_providers.dart';
 import '../analytics/models/event_names.dart';
 import '../config/app_store_config.dart';
-import '../features/auth/providers/auth_providers.dart';
-import '../features/auth/screens/account_screen.dart';
 import '../features/subscription/providers/subscription_availability.dart';
 import '../features/subscription/providers/subscription_controller.dart';
 import '../services/app_update_launcher.dart';
@@ -96,8 +94,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.m),
         children: [
-          _buildAccountSection(context, l10n),
-          const SizedBox(height: AppSpacing.m),
+          if (ref.watch(subscriptionAvailabilityProvider)) ...[
+            _buildAccountSection(context, l10n),
+            const SizedBox(height: AppSpacing.m),
+          ],
           _buildSection(
             context,
             title: l10n.appearance,
@@ -137,52 +137,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  /// 构建账号分组：登录入口 + 订阅入口（登录 item 下方）。
+  /// 构建账号分组：绕过登录后仅保留订阅入口（隐藏登录入口）。
   Widget _buildAccountSection(BuildContext context, AppLocalizations l10n) {
-    final session = ref.watch(supabaseSessionProvider).valueOrNull;
-    final isSignedIn = session != null;
-    final accountSubtitle = session == null
-        ? null
-        : switch (authDisplayProviderForSession(session)) {
-            AuthDisplayProvider.apple => l10n.authSignedInWithApple,
-            AuthDisplayProvider.google => l10n.authSignedInWithGoogle,
-            AuthDisplayProvider.email ||
-            AuthDisplayProvider.unknown => compactAccountListIdentifier(
-              session.user.email ?? session.user.id,
-            ),
-          };
-
     return _buildSection(
       context,
       title: l10n.account,
       children: [
-        ListTile(
-          leading: _settingsThemedSvgIcon(context, 'assets/icon/account-1.svg'),
-          title: Text(l10n.account),
-          subtitle: accountSubtitle == null
-              ? null
-              : Text(
-                  accountSubtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                isSignedIn ? l10n.authSignedInStatus : l10n.authSignedOutStatus,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-          onTap: () =>
-              context.push(isSignedIn ? AppRoutes.account : AppRoutes.login),
-        ),
-        // 当前平台未启用订阅（未注入 RC key）时隐藏入口。
+        // 绕过登录：隐藏账号登录入口，仅保留订阅入口。
         if (ref.watch(subscriptionAvailabilityProvider))
           _buildSubscriptionTile(context, l10n),
       ],

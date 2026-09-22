@@ -8,8 +8,6 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../auth/providers/auth_providers.dart';
-
 /// 对账所需的用户身份快照。
 class SubscriptionIdentity {
   /// 是否已经收到认证初始化结果。false 表示仍在等待 Supabase initialSession。
@@ -50,14 +48,12 @@ class SubscriptionIdentity {
   int get hashCode => Object.hash(isResolved, userId, accessToken);
 }
 
-/// 当前订阅身份（派生自 [supabaseSessionProvider]，身份单一来源不变）。
+/// 本地固定身份：绕过登录，用固定 userId 维度本地额度存储。
+const String kLocalUserId = 'local-user';
+
+/// 当前订阅身份。
+///
+/// 绕过登录版本：恒为固定本地身份（userId 可用，accessToken 为空）。
 final subscriptionIdentityProvider = Provider<SubscriptionIdentity>((ref) {
-  final sessionState = ref.watch(supabaseSessionProvider);
-  if (!sessionState.hasValue) return SubscriptionIdentity.pending;
-  final session = sessionState.valueOrNull;
-  if (session == null) return SubscriptionIdentity.anonymous;
-  return SubscriptionIdentity(
-    userId: session.user.id,
-    accessToken: session.accessToken,
-  );
+  return const SubscriptionIdentity(userId: kLocalUserId);
 });

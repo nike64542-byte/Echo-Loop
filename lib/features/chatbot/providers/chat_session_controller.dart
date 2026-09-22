@@ -144,18 +144,11 @@ class ChatSessionController extends _$ChatSessionController {
     // 1) 闸门（gate 是 banner 的唯一数据源）。
     //    注意：当前 freeAllowancePolicy 为 AlwaysAllowPolicy（恒放行），本地额度预测在
     //    现网是前向兼容的死分支；额度唯一权威是后端 402。
-    if (!ref.read(isAuthenticatedProvider)) {
-      state = state.copyWith(gate: ChatGate.authRequired);
-      return;
-    }
     final accessToken = ref
-        .read(supabaseSessionProvider)
-        .valueOrNull
-        ?.accessToken;
-    if (accessToken == null || accessToken.isEmpty) {
-      state = state.copyWith(gate: ChatGate.authRequired);
-      return;
-    }
+            .read(supabaseSessionProvider)
+            .valueOrNull
+            ?.accessToken ??
+        '';
     if (!ref.read(featureAccessProvider(PremiumFeature.aiChat))) {
       state = state.copyWith(gate: ChatGate.quotaExceeded);
       return;

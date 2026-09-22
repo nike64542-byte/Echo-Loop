@@ -962,10 +962,8 @@ class _SentenceExplanationViewState
         .watch(supabaseSessionProvider)
         .valueOrNull
         ?.accessToken;
-    // 讲解视图自包含：是否自动请求只由认证状态和用户 AI 设置决定，
-    // 宿主无需额外传入“启用自动加载”的开关。
-    final shouldAutoLoadSentenceAi =
-        accessToken != null && accessToken.isNotEmpty;
+    // 绕过登录：恒允许自动加载（认证闸门已移除）。
+    final shouldAutoLoadSentenceAi = true;
     final willStartAutoLoad =
         shouldAutoLoadSentenceAi &&
         (autoShowAiAnalysis ||

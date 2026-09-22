@@ -298,7 +298,7 @@ class SentenceAiNotifier {
   ///
   /// 只译目标句 [text]，[previous]/[next] 仅作上下文（缺失即首/末句，可为 null），
   /// 且**进入缓存键**（[translationContextHash]）：不同上下文互不串缓存。
-  /// 鉴权/额度：未登录抛 [AiFeatureAuthRequiredException]；后端 402 由内部映射为
+  /// 鉴权/额度：绕过登录不校验 accessToken；后端 402 由内部映射为
   /// [AiFeatureQuotaExceededException]。[targetLanguage] 为 BCP 47 代码。
   Stream<SentenceTranslation> getTranslationStream(
     String text, {
@@ -337,11 +337,7 @@ class SentenceAiNotifier {
       }
     }
 
-    // L3: 流式 API 调用
-    if (accessToken == null || accessToken.isEmpty) {
-      AppLogger.log('SentenceAI', '翻译 L3 需要登录，未发现 Supabase access token');
-      throw const AiFeatureAuthRequiredException();
-    }
+    // L3: 流式 API 调用（绕过登录：不校验 accessToken，后端 401 由错误映射兜底）
     await _beforeApiRequest?.call(
       PremiumFeature.aiTranslation,
       respectLocalQuotaReset: respectLocalQuotaReset,
@@ -366,7 +362,7 @@ class SentenceAiNotifier {
         previous: previous,
         next: next,
         targetLanguage: targetLanguage,
-        accessToken: accessToken,
+        accessToken: accessToken ?? '',
       ),
     );
     yield* pending.subscribe();
@@ -482,7 +478,7 @@ class SentenceAiNotifier {
   /// 未命中走 L3 流式：逐帧 yield 部分结果（供 UI 渐显），**仅收到完整末帧才**
   /// 写 L1+L2 并消耗一次试用；中途取消（客户端关流）不落缓存、不计费。
   ///
-  /// 鉴权/额度：未登录抛 [AiFeatureAuthRequiredException]；后端 402 由内部映射为
+  /// 鉴权/额度：绕过登录不校验 accessToken；后端 402 由内部映射为
   /// [AiFeatureQuotaExceededException]。[targetLanguage] 为 BCP 47 代码。
   Stream<SentenceAnalysis> getAnalysisStream(
     String text, {
@@ -519,11 +515,7 @@ class SentenceAiNotifier {
       }
     }
 
-    // L3: 流式 API 调用
-    if (accessToken == null || accessToken.isEmpty) {
-      AppLogger.log('SentenceAI', '解析 L3 需要登录，未发现 Supabase access token');
-      throw const AiFeatureAuthRequiredException();
-    }
+    // L3: 流式 API 调用（绕过登录：不校验 accessToken，后端 401 由错误映射兜底）
     await _beforeApiRequest?.call(
       PremiumFeature.aiAnalysis,
       respectLocalQuotaReset: respectLocalQuotaReset,
@@ -546,7 +538,7 @@ class SentenceAiNotifier {
         l2Type: l2Type,
         text: text,
         targetLanguage: targetLanguage,
-        accessToken: accessToken,
+        accessToken: accessToken ?? '',
       ),
     );
     yield* pending.subscribe();
@@ -661,7 +653,7 @@ class SentenceAiNotifier {
   /// 写 L1+L2 并消耗一次试用；中途取消（客户端关流）或校验失败一律不落缓存、不计费。
   ///
   /// 意群与目标语言无关（chunk 是原句子串的切分），缓存 key 仅 [hashText]，无语言维度。
-  /// 鉴权/额度：未登录抛 [AiFeatureAuthRequiredException]；后端 402 由内部映射为
+  /// 鉴权/额度：绕过登录不校验 accessToken；后端 402 由内部映射为
   /// [AiFeatureQuotaExceededException]。
   Stream<SenseGroupResult> getSenseGroupsStream(
     String text, {
@@ -701,11 +693,7 @@ class SentenceAiNotifier {
       }
     }
 
-    // L3: 流式 API 调用
-    if (accessToken == null || accessToken.isEmpty) {
-      AppLogger.log('SenseGroup', 'L3 需要登录，未发现 Supabase access token');
-      throw const AiFeatureAuthRequiredException();
-    }
+    // L3: 流式 API 调用（绕过登录：不校验 accessToken，后端 401 由错误映射兜底）
     await _beforeApiRequest?.call(
       PremiumFeature.aiSenseGroup,
       respectLocalQuotaReset: respectLocalQuotaReset,
@@ -725,7 +713,7 @@ class SentenceAiNotifier {
         pending,
         hash: hash,
         text: text,
-        accessToken: accessToken,
+        accessToken: accessToken ?? '',
       ),
     );
     yield* pending.subscribe();

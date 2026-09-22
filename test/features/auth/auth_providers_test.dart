@@ -87,13 +87,13 @@ void main() {
   });
 
   group('isAuthenticatedProvider', () {
-    test('未配置时为 false', () async {
+    test('绕过登录：恒为 true', () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
       await container.read(supabaseSessionProvider.future);
 
-      expect(container.read(isAuthenticatedProvider), isFalse);
+      expect(container.read(isAuthenticatedProvider), isTrue);
     });
   });
 

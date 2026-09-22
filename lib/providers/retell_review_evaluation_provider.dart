@@ -104,15 +104,8 @@ class RetellReviewEvaluationController
 
     // 闸门与 AI 转录 / 对话同一套，且必须早于音频转码与 2MB 上传：撞墙时既不烧
     // 本地转码算力，也不占上行带宽。额度的唯一权威仍是后端 402。
-    final accessToken = ref
-        .read(supabaseSessionProvider)
-        .valueOrNull
-        ?.accessToken;
-    if (accessToken == null || accessToken.isEmpty) {
-      AppLogger.log('RetellReview', '评估需要登录态，未取到 access token');
-      _failFast(attemptKey, 'auth_required');
-      return;
-    }
+    final accessToken =
+        ref.read(supabaseSessionProvider).valueOrNull?.accessToken ?? '';
     if (!ref.read(featureAccessProvider(PremiumFeature.aiRetellReview))) {
       AppLogger.log('RetellReview', '未解锁 AI 复述评估（非会员且试用用尽）');
       _failFast(attemptKey, 'quota_exceeded');

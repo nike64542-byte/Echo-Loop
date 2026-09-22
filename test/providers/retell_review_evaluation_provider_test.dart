@@ -207,16 +207,15 @@ void main() {
     expect(trialUsage.consumed, isEmpty);
   });
 
-  test('未登录直接失败，不转码也不发请求', () async {
+  test('无 session 时绕过登录闸门继续请求', () async {
     final api = _ScriptApi(okStream);
     final c = await make(api, authenticated: false, hasSession: false);
     await evaluate(c);
 
-    expect(st(c).phase, RetellReviewEvaluationPhase.failed);
-    expect(st(c).errorCode, 'auth_required');
-    // 闸门必须早于 ffmpeg 转码与 2MB 上传。
-    expect(preparer.callCount, 0);
-    expect(api.callCount, 0);
+    expect(st(c).phase, RetellReviewEvaluationPhase.completed);
+    expect(preparer.callCount, 1);
+    expect(api.callCount, 1);
+    expect(api.lastAccessToken, '');
   });
 
   test('已登录未解锁直接失败，不转码也不发请求', () async {

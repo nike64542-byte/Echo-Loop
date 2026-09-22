@@ -201,13 +201,12 @@ void main() {
     expect(api.callCount, 0);
   });
 
-  test('未登录 send → gate=authRequired，不发请求', () async {
+  test('未登录 send → 绕过登录闸门，直接发起请求', () async {
     final api = _ScriptApi((_) => okStream());
-    final c = await make(api, authenticated: false);
+    final c = await make(api, authenticated: false, hasSession: false);
     await ctrl(c).send('hi');
-    expect(st(c).gate, ChatGate.authRequired);
-    expect(st(c).messages, isEmpty);
-    expect(api.callCount, 0);
+    expect(st(c).gate, ChatGate.none);
+    expect(api.callCount, 1);
   });
 
   test('已登录未解锁 send → gate=quotaExceeded，不发请求', () async {
