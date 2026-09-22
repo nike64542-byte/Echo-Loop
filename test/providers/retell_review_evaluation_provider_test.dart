@@ -218,15 +218,14 @@ void main() {
     expect(api.lastAccessToken, '');
   });
 
-  test('已登录未解锁直接失败，不转码也不发请求', () async {
+  test('绕过会员限制：拒绝策略也不拦评估，继续请求', () async {
     final api = _ScriptApi(okStream);
     final c = await make(api, policy: const _DenyPolicy());
     await evaluate(c);
 
-    expect(st(c).phase, RetellReviewEvaluationPhase.failed);
-    expect(st(c).errorCode, 'quota_exceeded');
-    expect(preparer.callCount, 0);
-    expect(api.callCount, 0);
+    expect(st(c).phase, RetellReviewEvaluationPhase.completed);
+    expect(preparer.callCount, 1);
+    expect(api.callCount, 1);
   });
 
   test('后端 401 → auth_required', () async {

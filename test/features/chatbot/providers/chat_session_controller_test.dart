@@ -209,12 +209,12 @@ void main() {
     expect(api.callCount, 1);
   });
 
-  test('已登录未解锁 send → gate=quotaExceeded，不发请求', () async {
+  test('绕过会员限制：拒绝策略也不拦 send，直接发起请求', () async {
     final api = _ScriptApi((_) => okStream());
     final c = await make(api, policy: const _DenyPolicy());
     await ctrl(c).send('hi');
-    expect(st(c).gate, ChatGate.quotaExceeded);
-    expect(api.callCount, 0);
+    expect(st(c).gate, ChatGate.none);
+    expect(api.callCount, 1);
   });
 
   test('后端 402 → 该条 quotaBlocked（gate 不变）', () async {

@@ -3,7 +3,6 @@
 /// 测试设置页面的渲染和交互。
 library;
 
-import 'dart:convert';
 import 'dart:io' show File;
 
 import 'package:flutter/material.dart';
@@ -248,7 +247,6 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(findSvgAsset('assets/icon/account-1.svg'), findsOneWidget);
         expect(findSvgAsset('assets/icon/diamond.svg'), findsOneWidget);
         expect(findSvgAsset('assets/icon/artist-palette.svg'), findsOneWidget);
         expect(findSvgAsset('assets/icon/locale.svg'), findsOneWidget);
@@ -308,7 +306,7 @@ void main() {
         await tester.pumpAndSettle();
 
         final accountIcon = tester.widget<SvgPicture>(
-          findSvgAsset('assets/icon/account-1.svg'),
+          findSvgAsset('assets/icon/diamond.svg'),
         );
         expect(accountIcon.width, 26);
         expect(accountIcon.height, 26);
@@ -316,7 +314,7 @@ void main() {
           tester.getSize(
             find
                 .ancestor(
-                  of: findSvgAsset('assets/icon/account-1.svg'),
+                  of: findSvgAsset('assets/icon/diamond.svg'),
                   matching: find.byType(SizedBox),
                 )
                 .first,
@@ -357,7 +355,6 @@ void main() {
         expect(paletteIcon.colorFilter, isNull);
 
         const visibleAssets = [
-          'assets/icon/account-1.svg',
           'assets/icon/speak.svg',
           'assets/icon/microphone.svg',
           'assets/icon/play-pause.svg',
@@ -387,6 +384,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
+        await tester.scrollUntilVisible(find.text('About'), 200);
+        await tester.pumpAndSettle();
+
         expect(find.text('About'), findsOneWidget);
         expect(find.text('Terms of Service'), findsOneWidget);
         expect(find.text('Privacy Policy'), findsOneWidget);
@@ -410,6 +410,7 @@ void main() {
               overrides: buildOverrides(),
             ),
           );
+          await tester.scrollUntilVisible(find.text('Rate Us'), 200);
           await tester.pumpAndSettle();
 
           expect(find.text('Rate Us'), findsOneWidget);
@@ -435,10 +436,13 @@ void main() {
         }
       });
 
-      testWidgets('已登录时账号区显示登录邮箱', (tester) async {
+      testWidgets('绕过登录：账号区仅保留订阅入口，不显示登录信息', (tester) async {
         final user = User(
           id: 'user-1',
-          appMetadata: const {},
+          appMetadata: const {
+            'provider': 'apple',
+            'providers': ['apple'],
+          },
           userMetadata: const {},
           aud: 'authenticated',
           email: 'user@example.com',
@@ -464,151 +468,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('user@example.com'), findsOneWidget);
-      });
-
-      testWidgets('Apple 登录在账号入口显示 Apple 登录方式', (tester) async {
-        final user = User(
-          id: 'user-1',
-          appMetadata: const {
-            'provider': 'apple',
-            'providers': ['apple'],
-          },
-          userMetadata: const {},
-          aud: 'authenticated',
-          email: 'mbfpw8sdy7@privaterelay.appleid.com',
-          createdAt: '2026-06-04T00:00:00.000Z',
-        );
-        final session = Session(
-          accessToken: 'token',
-          tokenType: 'bearer',
-          user: user,
-          refreshToken: 'refresh',
-        );
-
-        await tester.pumpWidget(
-          createTestScreen(
-            const SettingsScreen(),
-            overrides: [
-              ...buildOverrides(),
-              supabaseSessionProvider.overrideWith(
-                (ref) => Stream<Session?>.value(session),
-              ),
-            ],
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text('mbfpw8sdy7@privaterelay.appleid.com'), findsNothing);
-        expect(find.text('Signed in with Apple'), findsOneWidget);
-      });
-
-      testWidgets('Google 登录在账号入口显示 Google 登录方式', (tester) async {
-        final user = User(
-          id: 'user-1',
-          appMetadata: const {
-            'provider': 'google',
-            'providers': ['google'],
-          },
-          userMetadata: const {},
-          aud: 'authenticated',
-          email: 'long.google.account@example.com',
-          createdAt: '2026-06-04T00:00:00.000Z',
-        );
-        final session = Session(
-          accessToken: 'token',
-          tokenType: 'bearer',
-          user: user,
-          refreshToken: 'refresh',
-        );
-
-        await tester.pumpWidget(
-          createTestScreen(
-            const SettingsScreen(),
-            overrides: [
-              ...buildOverrides(),
-              supabaseSessionProvider.overrideWith(
-                (ref) => Stream<Session?>.value(session),
-              ),
-            ],
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text('long.google.account@example.com'), findsNothing);
-        expect(find.text('Signed in with Google'), findsOneWidget);
-      });
-
-      testWidgets('关联 Google 后使用邮箱 OTP 登录在账号入口显示邮箱', (tester) async {
-        final user = User(
-          id: 'user-1',
-          appMetadata: const {
-            'provider': 'google',
-            'providers': ['email', 'google'],
-          },
-          userMetadata: const {},
-          aud: 'authenticated',
-          email: 'user@example.com',
-          createdAt: '2026-06-07T00:00:00.000Z',
-        );
-        final session = Session(
-          accessToken: _jwtWithAuthenticationMethod('otp'),
-          tokenType: 'bearer',
-          user: user,
-          refreshToken: 'refresh',
-        );
-
-        await tester.pumpWidget(
-          createTestScreen(
-            const SettingsScreen(),
-            overrides: [
-              ...buildOverrides(),
-              supabaseSessionProvider.overrideWith(
-                (ref) => Stream<Session?>.value(session),
-              ),
-            ],
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text('user@example.com'), findsOneWidget);
-        expect(find.text('Signed in with Google'), findsNothing);
-      });
-
-      testWidgets('邮箱登录不通过 Apple relay 域名误判登录方式', (tester) async {
-        final user = User(
-          id: 'user-1',
-          appMetadata: const {
-            'provider': 'email',
-            'providers': ['email'],
-          },
-          userMetadata: const {},
-          aud: 'authenticated',
-          email: 'mbfpw8sdy7@privaterelay.appleid.com',
-          createdAt: '2026-06-04T00:00:00.000Z',
-        );
-        final session = Session(
-          accessToken: 'token',
-          tokenType: 'bearer',
-          user: user,
-          refreshToken: 'refresh',
-        );
-
-        await tester.pumpWidget(
-          createTestScreen(
-            const SettingsScreen(),
-            overrides: [
-              ...buildOverrides(),
-              supabaseSessionProvider.overrideWith(
-                (ref) => Stream<Session?>.value(session),
-              ),
-            ],
-          ),
-        );
-        await tester.pumpAndSettle();
-
+        // 登录入口已移除：邮箱、登录方式均不展示；订阅入口保留。
+        expect(find.text('user@example.com'), findsNothing);
         expect(find.text('Signed in with Apple'), findsNothing);
-        expect(find.text('mbfpw8sd...@ay.appleid.com'), findsOneWidget);
+        expect(find.text('Subscription'), findsOneWidget);
       });
 
       testWidgets('未订阅：账户分组内显示订阅入口与「升级」徽章，无顶部金卡', (tester) async {
@@ -926,14 +789,6 @@ void main() {
       });
     });
   });
-}
-
-String _jwtWithAuthenticationMethod(String method) {
-  final header = base64Url.encode(utf8.encode('{"alg":"none"}'));
-  final payload = base64Url.encode(
-    utf8.encode('{"amr":[{"method":"$method","timestamp":0}]}'),
-  );
-  return '$header.$payload.';
 }
 
 /// 测试用 SubscriptionController，固定返回指定权益状态，

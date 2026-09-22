@@ -43,12 +43,12 @@ void main() {
     entitlement: Entitlement(isPremium: true),
   );
 
-  test('未登录 → false', () {
+  test('绕过登录：未登录 → true', () {
     final c = makeContainer(
       state: const EntitlementState.free(),
       authenticated: false,
     );
-    expect(c.read(featureAccessProvider(feature)), isFalse);
+    expect(c.read(featureAccessProvider(feature)), isTrue);
   });
 
   test('会员 → true', () {

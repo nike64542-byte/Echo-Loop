@@ -34,6 +34,7 @@ import '../../models/word_timestamp.dart';
 import '../../providers/audio_engine/audio_engine_provider.dart';
 import '../../providers/audio_sentences_provider.dart';
 import '../../providers/learning_settings_provider.dart';
+import '../../providers/runtime_api_config_provider.dart';
 import '../../providers/sentence_ai_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/saved_sense_group_provider.dart';
@@ -962,15 +963,19 @@ class _SentenceExplanationViewState
         .watch(supabaseSessionProvider)
         .valueOrNull
         ?.accessToken;
-    // 绕过登录：恒允许自动加载（认证闸门已移除）。
-    final shouldAutoLoadSentenceAi = true;
+    // 绕过登录：直连 LLM 已配置或持有 accessToken 即允许自动加载，
+    // 无需登录闸门。两者皆无（无可用 AI 路径）时不触发，避免空跑请求。
+    final hasUsableAiPath =
+        (accessToken != null && accessToken.isNotEmpty) ||
+        ref.watch(openAiAdapterProvider) != null;
+    final shouldAutoLoadSentenceAi = hasUsableAiPath;
     final willStartAutoLoad =
         shouldAutoLoadSentenceAi &&
         (autoShowAiAnalysis ||
             autoShowAiSenseGroups ||
             (autoShowAiTranslation && translationContextReady));
     _logAutoLoadDecision(
-      hasAccessToken: accessToken != null && accessToken.isNotEmpty,
+      hasUsableAiPath: hasUsableAiPath,
       autoShowAiTranslation: autoShowAiTranslation,
       autoShowAiAnalysis: autoShowAiAnalysis,
       autoShowAiSenseGroups: autoShowAiSenseGroups,
@@ -1198,15 +1203,15 @@ class _SentenceExplanationViewState
 
   /// 记录当前可见讲解句的自动加载判定，便于区分认证、设置与上下文阻断。
   void _logAutoLoadDecision({
-    required bool hasAccessToken,
+    required bool hasUsableAiPath,
     required bool autoShowAiTranslation,
     required bool autoShowAiAnalysis,
     required bool autoShowAiSenseGroups,
     required bool translationContextReady,
     required bool willLoad,
   }) {
-    final reason = !hasAccessToken
-        ? 'missingAuth'
+    final reason = !hasUsableAiPath
+        ? 'missingAiPath'
         : !autoShowAiTranslation &&
               !autoShowAiAnalysis &&
               !autoShowAiSenseGroups
@@ -1219,7 +1224,7 @@ class _SentenceExplanationViewState
       _sentenceIndex,
       _diagnosticSource,
       _diagnosticFlowPhase,
-      hasAccessToken,
+      hasUsableAiPath,
       autoShowAiTranslation,
       autoShowAiAnalysis,
       autoShowAiSenseGroups,
@@ -1232,7 +1237,7 @@ class _SentenceExplanationViewState
       '自动预加载判定: source=${_diagnosticSource ?? 'unknown'} '
           'sentence=${_sentenceIndex ?? -1} '
           'phase=${_diagnosticFlowPhase ?? 'none'} '
-          'auth=$hasAccessToken translation=$autoShowAiTranslation '
+          'auth=$hasUsableAiPath translation=$autoShowAiTranslation '
           'analysis=$autoShowAiAnalysis senseGroups=$autoShowAiSenseGroups '
           'contextReady=$translationContextReady load=$willLoad reason=$reason',
     );

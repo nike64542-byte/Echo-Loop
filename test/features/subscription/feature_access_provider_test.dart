@@ -47,38 +47,33 @@ void main() {
     entitlement: Entitlement(isPremium: true),
   );
 
-  test('未登录 → 锁定（即便 pro 状态 + 放行策略，权益仅登录后有效）', () {
-    final container = makeContainer(state: pro, authenticated: false);
-    expect(container.read(featureAccessProvider(feature)), isFalse);
-  });
-
-  test('未登录 + free + 放行策略 → 仍锁定（免费额度不发放给未登录用户）', () {
-    final container = makeContainer(
-      state: const EntitlementState.free(),
-      authenticated: false,
-    );
-    expect(container.read(featureAccessProvider(feature)), isFalse);
-  });
-
-  test('pro → 解锁（不论免费额度策略）', () {
+  test('绕过登录/会员：pro + 拒绝策略 → 解锁', () {
     final container = makeContainer(state: pro, policy: const _DenyPolicy());
     expect(container.read(featureAccessProvider(feature)), isTrue);
   });
 
-  test('free + 放行策略 → 解锁', () {
-    final container = makeContainer(state: const EntitlementState.free());
+  test('绕过登录：未登录 + free + 放行策略 → 解锁', () {
+    final container = makeContainer(
+      state: const EntitlementState.free(),
+      authenticated: false,
+    );
     expect(container.read(featureAccessProvider(feature)), isTrue);
   });
 
-  test('free + 拒绝策略 → 锁定', () {
+  test('绕过登录：未登录 + pro → 解锁', () {
+    final container = makeContainer(state: pro, authenticated: false);
+    expect(container.read(featureAccessProvider(feature)), isTrue);
+  });
+
+  test('绕过会员限制：free + 拒绝策略 → 解锁', () {
     final container = makeContainer(
       state: const EntitlementState.free(),
       policy: const _DenyPolicy(),
     );
-    expect(container.read(featureAccessProvider(feature)), isFalse);
+    expect(container.read(featureAccessProvider(feature)), isTrue);
   });
 
-  test('unknown 中间态按未持权益处理，由免费额度策略兜底', () {
+  test('绕过会员限制：unknown 中间态 → 解锁', () {
     final allow = makeContainer(state: const EntitlementState.unknown());
     expect(allow.read(featureAccessProvider(feature)), isTrue);
 
@@ -86,6 +81,6 @@ void main() {
       state: const EntitlementState.unknown(),
       policy: const _DenyPolicy(),
     );
-    expect(deny.read(featureAccessProvider(feature)), isFalse);
+    expect(deny.read(featureAccessProvider(feature)), isTrue);
   });
 }
