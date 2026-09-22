@@ -21,6 +21,8 @@ import 'package:echo_loop/features/subscription/providers/subscription_controlle
 import 'package:echo_loop/features/subscription/services/free_allowance_policy.dart';
 import 'package:echo_loop/features/subscription/state/entitlement_state.dart';
 import 'package:echo_loop/providers/settings_provider.dart';
+import 'package:echo_loop/providers/runtime_api_config_provider.dart';
+import 'package:echo_loop/services/openai_adapter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -56,6 +58,31 @@ class _ScriptApi implements ChatApi {
 
   @override
   void dispose() {}
+}
+
+/// 可脚本化的直连 OpenAI 适配器：每次 chat 调用交给 [script]，并捕获入参。
+class _ScriptOpenAiAdapter extends OpenAiAdapter {
+  _ScriptOpenAiAdapter(this.script)
+      : super(
+          baseUrl: 'https://mock.local',
+          apiKey: 'key',
+          modelId: 'mock-model',
+        );
+
+  final Stream<String> Function(CancelToken? cancelToken) script;
+
+  List<Map<String, String>>? lastMessages;
+  int callCount = 0;
+
+  @override
+  Stream<String> chat({
+    required List<Map<String, String>> messages,
+    CancelToken? cancelToken,
+  }) {
+    callCount++;
+    lastMessages = messages;
+    return script(cancelToken);
+  }
 }
 
 /// 记录 consume 调用次数的试用计数替身。
@@ -122,12 +149,15 @@ void main() {
     EntitlementState subscription = const EntitlementState.free(),
     FreeAllowancePolicy policy = const AlwaysAllowPolicy(),
     bool holdListener = true,
+    OpenAiAdapter? directLlmAdapter,
   }) async {
     trialUsage = _RecordingTrialUsage();
     final container = ProviderContainer(
       overrides: [
         analyticsOverride(),
         chatApiClientProvider.overrideWithValue(api),
+        if (directLlmAdapter != null)
+          openAiAdapterProvider.overrideWithValue(directLlmAdapter),
         isAuthenticatedProvider.overrideWithValue(authenticated),
         supabaseSessionProvider.overrideWith(
           (ref) => Stream<Session?>.value(hasSession ? _session() : null),
@@ -373,6 +403,54 @@ void main() {
     expect(msgs.last.status, ChatMessageStatus.done);
     expect(msgs.last.content, '它表示……');
     expect(trialUsage.consumeCount, 1);
+  });
+
+  test('直连 LLM：未登录无 token 也走适配器成功，不弹 401', () async {
+    Stream<String> okChunks() async* {
+      yield '它';
+      yield '它表示';
+      yield '它表示……';
+    }
+
+    final adapter = _ScriptOpenAiAdapter((_) => okChunks());
+    final api = _ScriptApi((_) => okStream()); // 不应被调用
+    final c = await make(api, hasSession: false, directLlmAdapter: adapter);
+    await ctrl(c).send('这句话什么意思？');
+
+    expect(adapter.callCount, 1);
+    expect(api.callCount, 0); // 未走后端
+    final msgs = st(c).messages;
+    expect(msgs, hasLength(2));
+    expect(msgs.last.role, ChatRole.assistant);
+    expect(msgs.last.content, '它表示……');
+    expect(msgs.last.status, ChatMessageStatus.done);
+    expect(st(c).status, ChatSessionStatus.idle);
+    expect(trialUsage.consumeCount, 1);
+    // messages 直连格式：role/content。
+    expect(adapter.lastMessages, isNotNull);
+    expect(adapter.lastMessages!.last['role'], 'user');
+    expect(adapter.lastMessages!.last['content'], '这句话什么意思？');
+  });
+
+  test('直连 LLM：适配器抛错 → 该条 error 可重试', () async {
+    var first = true;
+    final adapter = _ScriptOpenAiAdapter((_) {
+      if (first) {
+        first = false;
+        return Stream<String>.error(const ChatStreamException());
+      }
+      return Stream<String>.value('它表示……');
+    });
+    final api = _ScriptApi((_) => okStream());
+    final c = await make(api, hasSession: false, directLlmAdapter: adapter);
+    await ctrl(c).send('hi');
+    expect(st(c).messages.last.status, ChatMessageStatus.error);
+
+    await ctrl(c).retry();
+    expect(adapter.callCount, 2);
+    expect(api.callCount, 0);
+    expect(st(c).messages.last.status, ChatMessageStatus.done);
+    expect(st(c).messages.last.content, '它表示……');
   });
 
   test('send 带 quote → user 消息存 quote，发后端 content 并入 blockquote', () async {

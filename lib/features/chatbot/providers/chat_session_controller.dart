@@ -15,6 +15,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../analytics/analytics_providers.dart';
 import '../../../analytics/models/event_names.dart';
 import '../../../providers/settings_provider.dart';
+import '../../../providers/runtime_api_config_provider.dart';
 import '../../../services/app_logger.dart';
 import '../../auth/providers/auth_providers.dart';
 import '../../subscription/models/premium_feature.dart';
@@ -186,6 +187,8 @@ class ChatSessionController extends _$ChatSessionController {
     );
     final history = _buildHistory();
     final client = ref.read(chatApiClientProvider);
+    // 直连 LLM 模式：启用且配置完整时走 OpenAI 兼容适配器，绕过后端与登录态。
+    final adapter = ref.read(openAiAdapterProvider);
     // 追问引用指令按界面语言本地化：界面语言未显式设置时回退到系统 locale 匹配，
     // 使指令语言与用户界面一致（英文指令会让模型倾向英文回答）。
     final uiLocale =
@@ -196,6 +199,36 @@ class ChatSessionController extends _$ChatSessionController {
     ).chatFollowUpInstruction;
 
     try {
+      if (adapter != null) {
+        // 直连模式：messages 直接拼 role/content（toWire 处理追问引用）。
+        final messages = [
+          for (final m in history)
+            <String, String>{
+              'role': m.role.name,
+              'content':
+                  m.toWire(instruction: followUpInstruction)['content'] as String,
+            },
+        ];
+        var accumulated = '';
+        await for (final delta in adapter.chat(
+          messages: messages,
+          cancelToken: token,
+        )) {
+          if (_disposed || seq != _seq) return; // 防竞态守卫
+          accumulated += delta;
+          _updateBot(botId, accumulated); // 只改这条 assistant content
+        }
+        if (_disposed || seq != _seq) return;
+        if (_stopRequested) {
+          _finishTurn(botId, ChatMessageStatus.done);
+        } else if (accumulated.isEmpty) {
+          _finishTurn(botId, ChatMessageStatus.error);
+        } else {
+          _finishTurn(botId, ChatMessageStatus.done);
+          _consumeTrial();
+        }
+        return;
+      }
       await for (final frame in client.streamChat(
         endpoint: config.endpoint,
         history: history,
