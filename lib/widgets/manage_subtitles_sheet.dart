@@ -10,7 +10,6 @@ import 'package:go_router/go_router.dart';
 import 'package:universal_io/io.dart';
 import '../analytics/models/event_names.dart';
 import '../features/auth/providers/auth_providers.dart';
-import '../features/auth/sign_in_required_dialog.dart';
 import '../features/subscription/models/ai_quota_rejection.dart';
 import '../features/subscription/models/premium_feature.dart';
 import '../features/subscription/providers/ai_trial_usage_provider.dart';
@@ -1766,12 +1765,16 @@ class _ManageSubtitlesSheetState extends ConsumerState<ManageSubtitlesSheet> {
   ) async {
     final l10n = AppLocalizations.of(context)!;
     final accessToken = (await ref.read(
-      supabaseSessionProvider.future,
-    ))?.accessToken;
+          supabaseSessionProvider.future,
+        ))?.accessToken ??
+        '';
     if (!mounted || !context.mounted) return;
-    if (accessToken == null || accessToken.isEmpty) {
-      await _showTranscriptionSignInDialog(context);
-      return;
+    // 绕过登录：不校验 accessToken，后端 401 由错误映射兜底。
+    if (accessToken.isEmpty) {
+      AppLogger.log(
+        'TranscriptionSheet',
+        '绕过登录：未取到 access token，直接发起转录（后端 401 由错误映射兜底）',
+      );
     }
     // 已登录但未解锁（非会员且 AI 转录试用用尽）→ 先明确提示额度。
     if (!ref.read(featureAccessProvider(PremiumFeature.aiTranscription))) {
@@ -1962,24 +1965,6 @@ class _ManageSubtitlesSheetState extends ConsumerState<ManageSubtitlesSheet> {
     } catch (_) {
       return l10n.transcriptionAudioUnknown;
     }
-  }
-
-  /// 展示 AI 转录登录引导弹窗。
-  ///
-  /// AI 转录会上传音频并访问云端转录服务，因此只允许登录用户发起；
-  /// 本地上传字幕和已有本地字幕不受影响。
-  Future<void> _showTranscriptionSignInDialog(BuildContext context) async {
-    final l10n = AppLocalizations.of(context);
-    await ensureSignedInForAction(
-      context: context,
-      ref: ref,
-      title:
-          l10n?.transcriptionSignInRequiredTitle ??
-          'Sign in to use AI transcription',
-      message:
-          l10n?.transcriptionSignInRequiredMessage ??
-          'AI transcription uses the cloud transcription service. Sign in to transcribe audio with AI.',
-    );
   }
 
   /// 处理删除字幕

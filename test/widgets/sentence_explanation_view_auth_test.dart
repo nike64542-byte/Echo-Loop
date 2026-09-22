@@ -493,7 +493,7 @@ void main() {
     expect(aiNotifier.translationRequests, hasLength(1));
   });
 
-  testWidgets('未登录请求新意群时展示可关闭的登录弹窗', (tester) async {
+  testWidgets('绕过登录：未登录请求新意群时不弹登录窗，直接发起请求', (tester) async {
     final cacheDao = _MockCacheDao();
     final savedSenseGroupDao = _MockSavedSenseGroupDao();
     when(() => cacheDao.getByHash(any(), any())).thenAnswer((_) async => null);
@@ -501,33 +501,27 @@ void main() {
       savedSenseGroupDao.watchSavedPhraseTexts,
     ).thenAnswer((_) => Stream<Set<String>>.value(const {}));
 
+    final aiNotifier = _RecordingSentenceAiNotifier(
+      cacheDao: cacheDao,
+      apiClient: _NoopSentenceAiApiClient(),
+    );
     await pumpAuthTestApp(
       tester,
       cacheDao: cacheDao,
       savedSenseGroupDao: savedSenseGroupDao,
+      aiNotifier: aiNotifier,
     );
 
     await tester.tap(find.text('Sense Groups'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Sign in to use AI features'), findsOneWidget);
-
-    await tester.tap(find.text('Cancel'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    // 绕过登录：不弹「登录引导」弹窗，请求直接进入 API。
     expect(find.text('Sign in to use AI features'), findsNothing);
-
-    await tester.tap(find.text('Sense Groups'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('Sign In'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Login page'), findsOneWidget);
+    expect(aiNotifier.senseGroupRequests, equals(1));
   });
 
-  testWidgets('未登录请求新翻译时展示登录弹窗', (tester) async {
+  testWidgets('绕过登录：未登录请求新翻译时不弹登录窗，直接发起请求', (tester) async {
     final cacheDao = _MockCacheDao();
     final savedSenseGroupDao = _MockSavedSenseGroupDao();
     when(() => cacheDao.getByHash(any(), any())).thenAnswer((_) async => null);
@@ -535,19 +529,24 @@ void main() {
       savedSenseGroupDao.watchSavedPhraseTexts,
     ).thenAnswer((_) => Stream<Set<String>>.value(const {}));
 
+    final aiNotifier = _RecordingSentenceAiNotifier(
+      cacheDao: cacheDao,
+      apiClient: _NoopSentenceAiApiClient(),
+    );
     await pumpAuthTestApp(
       tester,
       cacheDao: cacheDao,
       savedSenseGroupDao: savedSenseGroupDao,
+      aiNotifier: aiNotifier,
     );
 
     await tester.tap(find.text('Translation'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Sign in to use AI features'), findsOneWidget);
-    expect(find.text('Cancel'), findsOneWidget);
-    expect(find.text('Sign In'), findsOneWidget);
+    // 绕过登录：不弹「登录引导」弹窗，请求直接进入 API。
+    expect(find.text('Sign in to use AI features'), findsNothing);
+    expect(aiNotifier.translationRequests, hasLength(1));
   });
 
   for (final button in ['Translation', 'Analysis']) {

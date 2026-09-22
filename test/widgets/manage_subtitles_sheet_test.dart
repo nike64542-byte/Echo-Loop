@@ -303,7 +303,7 @@ void main() {
         expect(filledButton.onPressed, isNotNull);
       });
 
-      testWidgets('未登录点击 AI 转录时显示登录弹窗', (tester) async {
+      testWidgets('绕过登录：未登录点击 AI 转录时不弹登录窗，直接开始转录', (tester) async {
         final item = createTestAudioItem(transcriptPath: null);
         await tester.pumpWidget(buildSheet(item));
         await tester.pumpAndSettle();
@@ -316,20 +316,17 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('Sign in to use AI transcription'), findsOneWidget);
+        // 绕过登录：不弹「Sign in」弹窗。
+        expect(find.text('Sign in to use AI transcription'), findsNothing);
         expect(
           find.textContaining(
             'AI transcription uses the cloud transcription service',
           ),
-          findsOneWidget,
+          findsNothing,
         );
-
-        await tester.tap(find.text('Cancel'));
-        await tester.pumpAndSettle();
-        expect(find.text('Sign in to use AI transcription'), findsNothing);
       });
 
-      testWidgets('免费用户点击 AI 转录时先显示额度提示', (tester) async {
+      testWidgets('绕过会员限制：免费用户点击 AI 转录时不弹额度提示，直接开始转录', (tester) async {
         SharedPreferences.setMockInitialValues({});
         final prefs = await SharedPreferences.getInstance();
         final item = createTestAudioItem(transcriptPath: null);
@@ -355,15 +352,13 @@ void main() {
         );
         await tester.pumpAndSettle();
 
+        // 绕过会员限制：不弹额度提示。
         expect(
           find.text(
             "This month's free AI subtitle transcription quota is used up",
           ),
-          findsOneWidget,
+          findsNothing,
         );
-        await tester.tap(find.text('Got it'));
-        await tester.pumpAndSettle();
-        expect(find.byType(ManageSubtitlesSheet), findsOneWidget);
       });
 
       testWidgets('后端转录额度用尽时清状态并显示额度提示', (tester) async {

@@ -363,17 +363,17 @@ void main() {
     );
   }
 
-  test('冷启动首帧为 unknown 中间态（对账前，C5）', () async {
+  test('绕过会员限制：冷启动首帧即为 premium（不做对账等待）', () async {
     await withClock(Clock.fixed(now), () async {
       final container = makeContainer(
         identity: SubscriptionIdentity.anonymous,
         repo: FakeEntitlementRepository((_) async => null),
         cache: FakeEntitlementCache(),
       );
-      // 读取后立即检查（refresh 尚未完成）。
+      // 读取后立即检查（对账前即为 premium，绕过逻辑不等待 refresh）。
       expect(
         container.read(subscriptionControllerProvider).status,
-        EntitlementStatus.unknown,
+        EntitlementStatus.premium,
       );
     });
   });
@@ -440,7 +440,7 @@ void main() {
     });
   });
 
-  test('认证未解析期间保持 unknown，随后登录不执行匿名 free 对账', () async {
+  test('认证未解析期间即为 premium（绕过），随后登录不执行匿名 free 对账', () async {
     await withClock(Clock.fixed(now), () async {
       final repo = FakeEntitlementRepository((_) async => proEntitlement);
       final cache = FakeEntitlementCache();
@@ -464,9 +464,10 @@ void main() {
       container.read(subscriptionControllerProvider);
       await pumpEventQueue();
 
+      // 绕过会员限制：pending 身份下也直接返回 premium，不等待初次解析。
       expect(
         container.read(subscriptionControllerProvider).status,
-        EntitlementStatus.unknown,
+        EntitlementStatus.premium,
       );
       expect(repo.calls, isEmpty);
 
@@ -897,7 +898,7 @@ void main() {
     });
   });
 
-  test('native 登录冷启动 → identify 完成前不读取权益', () async {
+  test('native 登录冷启动 → identify 完成前即为 premium（绕过）', () async {
     await withClock(Clock.fixed(now), () async {
       final identify = Completer<void>();
       final purchases = FakePurchaseService()
@@ -914,12 +915,12 @@ void main() {
       container.read(subscriptionControllerProvider);
       await pumpEventQueue();
 
-      // identify 尚未完成时，不能抢先读取旧匿名 / 旧账号的权益。
+      // 绕过会员限制：identify 尚未完成也直接返回 premium。
       expect(purchases.ensureIdentifiedCalls, contains('u1'));
       expect(repo.calls, isEmpty);
       expect(
         container.read(subscriptionControllerProvider).status,
-        EntitlementStatus.unknown,
+        EntitlementStatus.premium,
       );
 
       identify.complete();
@@ -1838,12 +1839,12 @@ void main() {
         ),
         cache: FakeEntitlementCache(),
       );
-      // u1 对账挂起。
+      // u1 对账挂起（绕过：首帧即为 premium）。
       container.read(subscriptionControllerProvider);
       await pumpEventQueue();
       expect(
         container.read(subscriptionControllerProvider).status,
-        EntitlementStatus.unknown,
+        EntitlementStatus.premium,
       );
 
       // 切到 u2：立即对账为 pro。

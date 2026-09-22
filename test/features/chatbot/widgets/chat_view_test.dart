@@ -404,7 +404,7 @@ void main() {
     expect(find.byIcon(Icons.arrow_upward), findsOneWidget); // 回到发送态
   });
 
-  testWidgets('已登录未解锁 → 发送触发 quotaExceeded 升级 banner', (tester) async {
+  testWidgets('绕过会员限制：拒绝策略也不拦发送，直接进入流式', (tester) async {
     await pumpChatWidget(
       tester,
       wrap(ChatView(config: config())),
@@ -421,8 +421,8 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    // gate banner 升级入口出现
-    expect(find.text('Upgrade'), findsOneWidget);
+    // 绕过会员限制：不展示升级 banner，直接发起请求进入发送态。
+    expect(find.text('Upgrade'), findsNothing);
     expect(find.byType(ChatComposer), findsOneWidget);
   });
 }
