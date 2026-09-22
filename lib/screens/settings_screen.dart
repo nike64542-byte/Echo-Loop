@@ -278,7 +278,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  /// 构建「大模型 API」分组：自定义 API 地址和 Key 配置。
+  /// 构建「大模型 API」分组：自定义 API 地址、Key、模型 ID 和直连模式配置。
   Widget _buildApiSettingsSection(
     BuildContext context,
     WidgetRef ref,
@@ -288,11 +288,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   ) {
     final customUrl = settings.customApiBaseUrl;
     final customKey = settings.customApiKey;
+    final directLlmEnabled = settings.directLlmEnabled;
+    final customModelId = settings.customModelId;
 
     return _buildSection(
       context,
       title: '大模型 API',
       children: [
+        SwitchListTile(
+          leading: _settingsMaterialIcon(Icons.power),
+          title: const Text('直连 LLM 模式'),
+          subtitle: const Text('绕过后端，直接调用 OpenAI 兼容 API'),
+          value: directLlmEnabled,
+          onChanged: (value) => settingsController.setDirectLlmEnabled(value),
+        ),
         ListTile(
           leading: _settingsMaterialIcon(Icons.link),
           title: const Text('API 地址'),
@@ -323,6 +332,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ref,
             settingsController,
             customKey,
+          ),
+        ),
+        ListTile(
+          leading: _settingsMaterialIcon(Icons.smart_toy),
+          title: const Text('模型 ID'),
+          subtitle: Text(
+            customModelId.isEmpty ? '未设置' : customModelId,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => _showCustomModelIdDialog(
+            context,
+            ref,
+            settingsController,
+            customModelId,
           ),
         ),
       ],
@@ -402,6 +427,61 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     if (result != null) {
       await settingsController.setCustomApiKey(result);
+    }
+  }
+
+  /// 弹出自定义模型 ID 编辑对话框。
+  Future<void> _showCustomModelIdDialog(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settingsController,
+    String currentValue,
+  ) async {
+    final controller = TextEditingController(text: currentValue);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('设置模型 ID'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: 'gpt-4o / deepseek-chat / moonshot-v1-8k',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '常见模型 ID：\n'
+              '• OpenAI: gpt-4o, gpt-4o-mini\n'
+              '• DeepSeek: deepseek-chat\n'
+              '• Moonshot: moonshot-v1-8k\n'
+              '• 通义千问: qwen-plus\n'
+              '• Ollama: llama3',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    if (result != null) {
+      await settingsController.setCustomModelId(result);
     }
   }
 

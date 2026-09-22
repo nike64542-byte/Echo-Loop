@@ -19,6 +19,8 @@ const _aiTranscriptionAutoMergeEnabledKey =
     'ai_transcription_auto_merge_enabled';
 const _customApiBaseUrlKey = 'custom_api_base_url';
 const _customApiKeyKey = 'custom_api_key';
+const _directLlmEnabledKey = 'direct_llm_enabled';
+const _customModelIdKey = 'custom_model_id';
 
 /// 静音阈值合法范围（秒）
 const silenceThresholdMinSeconds = 1;
@@ -140,6 +142,12 @@ class AppSettingsState {
   /// 自定义大模型 API Key（为空时使用默认鉴权）。
   final String customApiKey;
 
+  /// 是否启用直连 LLM 模式（绕过 Echo Loop 后端，直接调用 OpenAI 兼容 API）。
+  final bool directLlmEnabled;
+
+  /// 自定义模型 ID（如 gpt-4o、deepseek-chat 等）。
+  final String customModelId;
+
   const AppSettingsState({
     this.themeMode = ThemeMode.system,
     this.locale,
@@ -153,6 +161,8 @@ class AppSettingsState {
     this.aiTranscriptionAutoMergeEnabled = true,
     this.customApiBaseUrl = '',
     this.customApiKey = '',
+    this.directLlmEnabled = false,
+    this.customModelId = '',
   });
 
   AppSettingsState copyWith({
@@ -170,6 +180,8 @@ class AppSettingsState {
     bool? aiTranscriptionAutoMergeEnabled,
     String? customApiBaseUrl,
     String? customApiKey,
+    bool? directLlmEnabled,
+    String? customModelId,
   }) {
     return AppSettingsState(
       themeMode: themeMode ?? this.themeMode,
@@ -190,6 +202,8 @@ class AppSettingsState {
           this.aiTranscriptionAutoMergeEnabled,
       customApiBaseUrl: customApiBaseUrl ?? this.customApiBaseUrl,
       customApiKey: customApiKey ?? this.customApiKey,
+      directLlmEnabled: directLlmEnabled ?? this.directLlmEnabled,
+      customModelId: customModelId ?? this.customModelId,
     );
   }
 }
@@ -282,6 +296,8 @@ class AppSettings extends _$AppSettings {
         prefs.getBool(_aiTranscriptionAutoMergeEnabledKey) ?? true;
     final customApiBaseUrl = prefs.getString(_customApiBaseUrlKey) ?? '';
     final customApiKey = prefs.getString(_customApiKeyKey) ?? '';
+    final directLlmEnabled = prefs.getBool(_directLlmEnabledKey) ?? false;
+    final customModelId = prefs.getString(_customModelIdKey) ?? '';
 
     state = state.copyWith(
       themeMode: themeMode,
@@ -296,6 +312,8 @@ class AppSettings extends _$AppSettings {
       aiTranscriptionAutoMergeEnabled: aiTranscriptionAutoMergeEnabled,
       customApiBaseUrl: customApiBaseUrl,
       customApiKey: customApiKey,
+      directLlmEnabled: directLlmEnabled,
+      customModelId: customModelId,
     );
   }
 
@@ -465,5 +483,21 @@ class AppSettings extends _$AppSettings {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_customApiKeyKey, key);
+  }
+
+  /// 设置是否启用直连 LLM 模式。
+  Future<void> setDirectLlmEnabled(bool enabled) async {
+    state = state.copyWith(directLlmEnabled: enabled);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_directLlmEnabledKey, enabled);
+  }
+
+  /// 设置自定义模型 ID。
+  Future<void> setCustomModelId(String modelId) async {
+    state = state.copyWith(customModelId: modelId);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_customModelIdKey, modelId);
   }
 }

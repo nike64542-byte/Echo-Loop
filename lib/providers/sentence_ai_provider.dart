@@ -23,8 +23,10 @@ import '../features/subscription/providers/subscription_identity.dart';
 import '../models/sense_group_result.dart';
 import '../models/sentence_ai_result.dart';
 import '../services/sentence_ai_api_client.dart';
+import '../services/openai_adapter.dart';
 import '../utils/sense_group_validate.dart';
 import '../utils/text_normalize.dart';
+import 'runtime_api_config_provider.dart';
 
 /// 请求云端 AI 功能但当前用户未登录。
 class AiFeatureAuthRequiredException implements Exception {
@@ -220,6 +222,9 @@ class SentenceAiNotifier {
   final SentenceAiCacheDao _cacheDao;
   final SentenceAiApiClient _apiClient;
 
+  /// OpenAI 直连适配器（为空时使用后端 API）。
+  final OpenAiAdapter? _openAiAdapter;
+
   /// 额度闸：发起 L3 请求前调用。已登录但未解锁（非会员且免费试用用尽）时
   /// 抛 [AiFeatureQuotaExceededException]；会员或仍有试用额度则放行。
   /// 注入而非内联订阅依赖，保持数据层与订阅状态解耦（通过 [PremiumFeature] 中性枚举）。
@@ -263,6 +268,7 @@ class SentenceAiNotifier {
   SentenceAiNotifier({
     required SentenceAiCacheDao cacheDao,
     required SentenceAiApiClient apiClient,
+    OpenAiAdapter? openAiAdapter,
     void Function(PremiumFeature feature)? guardFeature,
     void Function(PremiumFeature feature)? onConsumeTrial,
     Future<void> Function(
@@ -276,6 +282,7 @@ class SentenceAiNotifier {
     Future<void> Function(PremiumFeature feature)? onApiSucceeded,
   }) : _cacheDao = cacheDao,
        _apiClient = apiClient,
+       _openAiAdapter = openAiAdapter,
        _guardFeature = guardFeature,
        _onConsumeTrial = onConsumeTrial,
        _beforeApiRequest = beforeApiRequest,
@@ -383,16 +390,34 @@ class SentenceAiNotifier {
       while (true) {
         attempt += 1;
         try {
-          await for (final frame in _apiClient.translateStream(
-            text,
-            previousText: previous,
-            nextText: next,
-            targetLanguage: targetLanguage,
-            accessToken: accessToken,
-            cancelToken: pending.cancelToken,
-          )) {
-            pending.add(frame.translation);
-            if (frame.isFinal) finalTranslation = frame.translation;
+          // 直连模式：使用 OpenAI 适配器
+          if (_openAiAdapter != null) {
+            var accumulated = '';
+            await for (final chunk in _openAiAdapter!.translate(
+              text: text,
+              targetLanguage: targetLanguage,
+              previousText: previous,
+              nextText: next,
+              cancelToken: pending.cancelToken,
+            )) {
+              accumulated += chunk;
+              final frame = SentenceTranslation(translation: accumulated);
+              pending.add(frame);
+              finalTranslation = frame;
+            }
+          } else {
+            // 后端模式：使用原生 API 客户端
+            await for (final frame in _apiClient.translateStream(
+              text,
+              previousText: previous,
+              nextText: next,
+              targetLanguage: targetLanguage,
+              accessToken: accessToken,
+              cancelToken: pending.cancelToken,
+            )) {
+              pending.add(frame.translation);
+              if (frame.isFinal) finalTranslation = frame.translation;
+            }
           }
           break;
         } on DioException catch (e, stackTrace) {
@@ -543,14 +568,35 @@ class SentenceAiNotifier {
       while (true) {
         attempt += 1;
         try {
-          await for (final frame in _apiClient.analyzeStream(
-            text,
-            targetLanguage: targetLanguage,
-            accessToken: accessToken,
-            cancelToken: pending.cancelToken,
-          )) {
-            pending.add(frame.analysis);
-            if (frame.isFinal) finalAnalysis = frame.analysis;
+          // 直连模式：使用 OpenAI 适配器
+          if (_openAiAdapter != null) {
+            var accumulated = '';
+            await for (final chunk in _openAiAdapter!.analyze(
+              text: text,
+              targetLanguage: targetLanguage,
+              cancelToken: pending.cancelToken,
+            )) {
+              accumulated += chunk;
+              // 简单包装为分析结果
+              final analysis = SentenceAnalysis(
+                grammar: [GrammarPoint(point: '分析', note: accumulated)],
+                vocabulary: [],
+                listening: [],
+              );
+              pending.add(analysis);
+              finalAnalysis = analysis;
+            }
+          } else {
+            // 后端模式
+            await for (final frame in _apiClient.analyzeStream(
+              text,
+              targetLanguage: targetLanguage,
+              accessToken: accessToken,
+              cancelToken: pending.cancelToken,
+            )) {
+              pending.add(frame.analysis);
+              if (frame.isFinal) finalAnalysis = frame.analysis;
+            }
           }
           break;
         } on DioException catch (e, stackTrace) {
@@ -931,9 +977,11 @@ class SentenceAiNotifier {
 /// SentenceAiNotifier Provider
 final sentenceAiNotifierProvider = Provider<SentenceAiNotifier>((ref) {
   ref.watch(aiQuotaLimitCleanupProvider);
+  final openAiAdapter = ref.watch(openAiAdapterProvider);
   return SentenceAiNotifier(
     cacheDao: ref.watch(sentenceAiCacheDaoProvider),
     apiClient: ref.watch(sentenceAiApiClientProvider),
+    openAiAdapter: openAiAdapter,
     // 额度闸：已登录前提下未解锁（非会员且试用用尽）→ 抛配额超限。
     guardFeature: (feature) {
       if (!ref.read(featureAccessProvider(feature))) {
