@@ -295,12 +295,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context,
       title: '大模型 API',
       children: [
-        SwitchListTile(
+        ListTile(
           leading: _settingsMaterialIcon(Icons.power),
           title: const Text('直连 LLM 模式'),
           subtitle: const Text('绕过后端，直接调用 OpenAI 兼容 API'),
-          value: directLlmEnabled,
-          onChanged: (value) => settingsController.setDirectLlmEnabled(value),
+          trailing: Switch(
+            value: directLlmEnabled,
+            onChanged: (value) => settingsController.setDirectLlmEnabled(value),
+          ),
         ),
         ListTile(
           leading: _settingsMaterialIcon(Icons.link),

@@ -12,7 +12,6 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../services/app_logger.dart';
-import '../services/ndjson_stream.dart';
 
 /// OpenAI Chat Completions 请求体。
 class _ChatCompletionRequest {
@@ -214,7 +213,7 @@ class OpenAiAdapter {
 
       // 解析 SSE 流：每行格式为 "data: {...}" 或 "data: [DONE]"
       await for (final line
-          in body.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+          in body.stream.map((bytes) => utf8.decode(bytes)).transform(const LineSplitter())) {
         if (line.startsWith('data: ')) {
           final data = line.substring(6).trim();
           if (data == '[DONE]') break;

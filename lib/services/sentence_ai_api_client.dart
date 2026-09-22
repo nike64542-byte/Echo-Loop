@@ -14,7 +14,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:universal_io/io.dart';
 
 import '../analytics/geo_interceptor.dart';
-import '../config/api_config.dart';
 import '../features/auth/providers/auth_providers.dart';
 import '../providers/package_info_provider.dart';
 import '../providers/runtime_api_config_provider.dart';
